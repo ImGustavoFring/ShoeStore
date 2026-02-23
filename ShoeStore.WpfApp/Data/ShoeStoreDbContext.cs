@@ -26,14 +26,13 @@ namespace ShoeStore.WpfApp.Data
         {
             // Определяем путь к папке Data относительно базового каталога приложения
             string dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+            // Создаем папку, если её нет
 
             if (!Directory.Exists(dataDirectory))
             {
                 Directory.CreateDirectory(dataDirectory);
             }
-
             string dbPath = Path.Combine(dataDirectory, "ShoeStore.db");
-
             optionsBuilder.UseSqlite($"Data Source={dbPath}");
         }
 

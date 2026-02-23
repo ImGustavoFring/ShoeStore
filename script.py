@@ -17,7 +17,7 @@ def collect_csharp_code(solution_path, output_file="combined_code.txt"):
     }
     
     # Расширения файлов, которые нужно обработать
-    code_extensions = {'.cs', '.csproj', '.sln', '.json', '.config', '.xml', '.proto', '.html'}
+    code_extensions = {'.cs', '.csproj', '.sln', '.json', '.config', '.xml', '.proto', '.html', '.xaml.cs', '.xaml'}
     
     # Файлы, которые нужно игнорировать
     ignore_files = {
