@@ -1,0 +1,894 @@
+=== C# SOLUTION STRUCTURE ===
+Solution Path: C:\Projects\KTK\ShoeStore
+Total Files: 28
+
+
+============================================================
+FILE: ShoeStore.WpfApp\App.xaml.cs
+SIZE: 234 chars
+============================================================
+
+﻿using System.Configuration;
+using System.Data;
+using System.Windows;
+
+namespace ShoeStore.WpfApp
+{
+    /// <summary>
+    /// Interaction logic for App.xaml
+    /// </summary>
+    public partial class App : Application
+    {
+    }
+
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\ArticleConfiguration.cs
+SIZE: 1194 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class ArticleConfiguration : IEntityTypeConfiguration<Article>
+    {
+        public void Configure(EntityTypeBuilder<Article> builder)
+        {
+            builder.ToTable("Articles");
+
+            builder.HasKey(a => a.Id);
+
+            builder.Property(a => a.Title)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            builder.HasIndex(a => a.Title)
+                .IsUnique();
+
+            // Связь с Product (один-ко-многим, но фактически один-к-одному через уникальность ArticleId в Product)
+            builder.HasMany(a => a.Products)
+                .WithOne(p => p.Article)
+                .HasForeignKey(p => p.ArticleId)
+                .OnDelete(DeleteBehavior.Restrict); // Запрет каскадного удаления
+
+            // Связь с OrderItem (один-ко-многим)
+            builder.HasMany(a => a.OrderItems)
+                .WithOne(oi => oi.Article)
+                .HasForeignKey(oi => oi.ArticleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\CategoryConfiguration.cs
+SIZE: 809 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class CategoryConfiguration : IEntityTypeConfiguration<Category>
+    {
+        public void Configure(EntityTypeBuilder<Category> builder)
+        {
+            builder.ToTable("Categories");
+            builder.HasKey(c => c.Id);
+
+            builder.Property(c => c.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.HasIndex(c => c.Name)
+                .IsUnique();
+
+            builder.HasMany(c => c.Products)
+                .WithOne(p => p.Category)
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\ManufacturerConfiguration.cs
+SIZE: 832 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class ManufacturerConfiguration : IEntityTypeConfiguration<Manufacturer>
+    {
+        public void Configure(EntityTypeBuilder<Manufacturer> builder)
+        {
+            builder.ToTable("Manufacturers");
+            builder.HasKey(m => m.Id);
+
+            builder.Property(m => m.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.HasIndex(m => m.Name)
+                .IsUnique();
+
+            builder.HasMany(m => m.Products)
+                .WithOne(p => p.Manufacturer)
+                .HasForeignKey(p => p.ManufacturerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\OrderConfiguration.cs
+SIZE: 1511 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class OrderConfiguration : IEntityTypeConfiguration<Order>
+    {
+        public void Configure(EntityTypeBuilder<Order> builder)
+        {
+            builder.ToTable("Orders");
+            builder.HasKey(o => o.Id);
+
+            builder.Property(o => o.Number)
+                .IsRequired();
+
+            // Уникальность номера заказа
+            builder.HasIndex(o => o.Number)
+                .IsUnique();
+
+            builder.Property(o => o.OrderDate)
+                .IsRequired();
+
+            builder.Property(o => o.DeliveryDate)
+                .IsRequired();
+
+            builder.Property(o => o.ReceiptCode)
+                .IsRequired();
+
+            // Связь с PickUpPoint
+            builder.HasOne(o => o.PickUpPoint)
+                .WithMany(p => p.Orders)
+                .HasForeignKey(o => o.PickUpPointId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Связь с User
+            builder.HasOne(o => o.User)
+                .WithMany(u => u.Orders)
+                .HasForeignKey(o => o.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Связь со Status
+            builder.HasOne(o => o.Status)
+                .WithMany(s => s.Orders)
+                .HasForeignKey(o => o.StatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\OrderItemConfiguration.cs
+SIZE: 1161 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
+    {
+        public void Configure(EntityTypeBuilder<OrderItem> builder)
+        {
+            builder.ToTable("OrderItems");
+            builder.HasKey(oi => oi.Id);
+
+            builder.Property(oi => oi.Quantity)
+                .IsRequired();
+
+            builder.Property(oi => oi.Price)
+                .IsRequired()
+                .HasPrecision(18, 2); // для совместимости с другими БД
+
+            // Связь с Order
+            builder.HasOne(oi => oi.Order)
+                .WithMany(o => o.OrderItems)
+                .HasForeignKey(oi => oi.OrderId)
+                .OnDelete(DeleteBehavior.Cascade); // При удалении заказа удаляются и его позиции
+
+            // Связь с Article
+            builder.HasOne(oi => oi.Article)
+                .WithMany(a => a.OrderItems)
+                .HasForeignKey(oi => oi.ArticleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\PickUpPointConfiguration.cs
+SIZE: 1013 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class PickUpPointConfiguration : IEntityTypeConfiguration<PickUpPoint>
+    {
+        public void Configure(EntityTypeBuilder<PickUpPoint> builder)
+        {
+            builder.ToTable("PickUpPoints");
+            builder.HasKey(p => p.Id);
+
+            builder.Property(p => p.PostCode)
+                .IsRequired();
+
+            builder.Property(p => p.City)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.Property(p => p.Street)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            builder.Property(p => p.House)
+                .IsRequired();
+
+            // Составной уникальный индекс на адрес (чтобы избежать дубликатов)
+            builder.HasIndex(p => new { p.PostCode, p.City, p.Street, p.House })
+                .IsUnique();
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\ProductConfiguration.cs
+SIZE: 2376 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class ProductConfiguration : IEntityTypeConfiguration<Product>
+    {
+        public void Configure(EntityTypeBuilder<Product> builder)
+        {
+            builder.ToTable("Products");
+            builder.HasKey(p => p.Id);
+
+            // Настройка связи с Article (один-к-одному через уникальность ArticleId)
+            builder.HasOne(p => p.Article)
+                .WithMany(a => a.Products) // здесь коллекция, но мы обеспечим уникальность
+                .HasForeignKey(p => p.ArticleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Уникальность ArticleId гарантирует, что одному Article соответствует только один Product
+            builder.HasIndex(p => p.ArticleId)
+                .IsUnique();
+
+            builder.Property(p => p.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            builder.Property(p => p.Price)
+                .IsRequired()
+                .HasPrecision(18, 2);
+
+            builder.Property(p => p.Discount)
+                .IsRequired()
+                .HasPrecision(18, 2);
+
+            builder.Property(p => p.QuantityInStock)
+                .IsRequired();
+
+            builder.Property(p => p.Description)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            builder.Property(p => p.PhotoPath)
+                .HasMaxLength(500); // может быть null
+
+            // Связи со справочниками
+            builder.HasOne(p => p.Unit)
+                .WithMany(u => u.Products)
+                .HasForeignKey(p => p.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(p => p.Supplier)
+                .WithMany(s => s.Products)
+                .HasForeignKey(p => p.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(p => p.Manufacturer)
+                .WithMany(m => m.Products)
+                .HasForeignKey(p => p.ManufacturerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(p => p.Category)
+                .WithMany(c => c.Products)
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\RoleConfiguration.cs
+SIZE: 781 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class RoleConfiguration : IEntityTypeConfiguration<Role>
+    {
+        public void Configure(EntityTypeBuilder<Role> builder)
+        {
+            builder.ToTable("Roles");
+
+            builder.HasKey(r => r.Id);
+
+            builder.Property(r => r.Name)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            builder.HasIndex(r => r.Name)
+                .IsUnique();
+
+            builder.HasMany(r => r.Users)
+                .WithOne(u => u.Role)
+                .HasForeignKey(u => u.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\StatusConfiguration.cs
+SIZE: 610 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class StatusConfiguration : IEntityTypeConfiguration<Status>
+    {
+        public void Configure(EntityTypeBuilder<Status> builder)
+        {
+            builder.ToTable("Statuses");
+            builder.HasKey(s => s.Id);
+
+            builder.Property(s => s.Name)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            builder.HasIndex(s => s.Name)
+                .IsUnique();
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\SupplierConfiguration.cs
+SIZE: 808 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
+    {
+        public void Configure(EntityTypeBuilder<Supplier> builder)
+        {
+            builder.ToTable("Suppliers");
+            builder.HasKey(s => s.Id);
+
+            builder.Property(s => s.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.HasIndex(s => s.Name)
+                .IsUnique();
+
+            builder.HasMany(s => s.Products)
+                .WithOne(p => p.Supplier)
+                .HasForeignKey(p => p.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\UnitConfiguration.cs
+SIZE: 784 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class UnitConfiguration : IEntityTypeConfiguration<Unit>
+    {
+        public void Configure(EntityTypeBuilder<Unit> builder)
+        {
+            builder.ToTable("Units");
+
+            builder.HasKey(u => u.Id);
+
+            builder.Property(u => u.Name)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            builder.HasIndex(u => u.Name)
+                .IsUnique();
+
+            builder.HasMany(u => u.Products)
+                .WithOne(p => p.Unit)
+                .HasForeignKey(p => p.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\EntityConfigurations\UserConfiguration.cs
+SIZE: 1089 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ShoeStore.WpfApp.Models;
+
+namespace ShoeStore.WpfApp.Data.EntityConfigurations
+{
+    public class UserConfiguration : IEntityTypeConfiguration<User>
+    {
+        public void Configure(EntityTypeBuilder<User> builder)
+        {
+            builder.ToTable("Users");
+
+            builder.HasKey(u => u.Id);
+
+            builder.Property(u => u.FullName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            builder.Property(u => u.Login)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.HasIndex(u => u.Login)
+                .IsUnique(); // Логин должен быть уникальным
+
+            builder.Property(u => u.Password)
+                .IsRequired()
+                .HasMaxLength(100); // для хеша пароля
+
+            // Связь с Role
+            builder.HasOne(u => u.Role)
+                .WithMany(r => r.Users)
+                .HasForeignKey(u => u.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Data\ShoeStoreDbContext.cs
+SIZE: 1124 chars
+============================================================
+
+﻿using Microsoft.EntityFrameworkCore;
+using ShoeStore.WpfApp.Models;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Data
+{
+    public class ShoeStoreDbContext : DbContext
+    {
+        public DbSet<Article> Articles { get; set; }
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<Manufacturer> Manufacturers { get; set; }
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<PickUpPoint> PickUpPoints { get; set; }
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<Status> Statuses { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Unit> Units { get; set; }
+        public DbSet<User> Users { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // Применяем все конфигурации из текущей сборки
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ShoeStoreDbContext).Assembly);
+        }
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\MainWindow.xaml.cs
+SIZE: 540 chars
+============================================================
+
+﻿using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace ShoeStore.WpfApp
+{
+    /// <summary>
+    /// Interaction logic for MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Article.cs
+SIZE: 372 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Article
+    {
+        public long Id { get; set; }
+        public string Title { get; set; } = null!;
+        public ICollection<Product> Products { get; set; } = null!;
+        public ICollection<OrderItem> OrderItems { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Category.cs
+SIZE: 300 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Category
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public IEnumerable<Product> Products { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Manufacturer.cs
+SIZE: 304 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Manufacturer
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public IEnumerable<Product> Products { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Order.cs
+SIZE: 733 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Order
+    {
+        public long Id { get; set; }
+        public long Number { get; set; }
+        public ICollection<OrderItem> OrderItems { get; set; } = null!;
+        public DateOnly OrderDate { get; set; }
+        public DateOnly DeliveryDate { get; set; }
+        public long PickUpPointId {  get; set; }
+        public PickUpPoint PickUpPoint { get; set; } = null!;
+        public long UserId { get; set; }
+        public User User { get; set; } = null!;
+        public long ReceiptCode { get; set; }
+        public long StatusId { get; set; }
+        public Status Status { get; set; } = null!;
+
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\OrderItem.cs
+SIZE: 459 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class OrderItem
+    {
+        public long Id { get; set; }
+        public long ArticleId { get; set; }
+        public Article Article { get; set; } = null!;
+        public long OrderId { get; set; }
+        public Order Order { get; set; } = null!;
+        public long Quantity { get; set; }
+        public decimal Price { get; set; }
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\PickUpPoint.cs
+SIZE: 435 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class PickUpPoint
+    {
+        public long Id { get; set; }
+        public long PostCode { get; set; }
+        public string City { get; set; } = null!;
+        public string Street { get; set; } = null!;
+        public long House {  get; set; }
+        public ICollection<Order> Orders { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Product.cs
+SIZE: 984 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Product
+    {
+        public long Id { get; set; }
+        public long ArticleId { get; set; }
+        public Article Article { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public long UnitId { get; set; }
+        public Unit Unit { get; set; } = null!;
+        public decimal Price { get; set; }
+        public long SupplierId { get; set; }
+        public Supplier Supplier { get; set; } = null!;
+        public long ManufacturerId { get; set; }
+        public Manufacturer Manufacturer { get; set; } = null!;
+        public long CategoryId { get; set; }
+        public Category Category { get; set; } = null!;
+        public decimal Discount { get; set; }
+        public long QuantityInStock { get; set; }
+        public string Description { get; set; } = null!;
+        public string? PhotoPath { get; set; } = null;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Role.cs
+SIZE: 290 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Role
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public ICollection<User> Users { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Status.cs
+SIZE: 294 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Status
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public IEnumerable<Order> Orders { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Supplier.cs
+SIZE: 300 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Supplier
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public IEnumerable<Product> Products { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\Unit.cs
+SIZE: 296 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class Unit
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public IEnumerable<Product> Products { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\Models\User.cs
+SIZE: 490 chars
+============================================================
+
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ShoeStore.WpfApp.Models
+{
+    public class User
+    {
+        public long Id { get; set; }
+        public long RoleId { get; set; }
+        public Role Role { get; set; } = null!;
+        public string FullName { get; set; } = null!;
+        public string Login { get; set; } = null!;
+        public string Password { get; set; } = null!;
+        public ICollection<Order> Orders { get; set; } = null!;
+    }
+}
+
+
+============================================================
+FILE: ShoeStore.WpfApp\ShoeStore.WpfApp.csproj
+SIZE: 1419 chars
+============================================================
+
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Assets\" />
+  </ItemGroup>
+
+</Project>
+
