@@ -1,8 +1,9 @@
-﻿using System;
-using System.IO;
-using System.Windows;
+﻿using Microsoft.EntityFrameworkCore;
 using ShoeStore.WpfApp.Data;
 using ShoeStore.WpfApp.Views;
+using System;
+using System.IO;
+using System.Windows;
 
 namespace ShoeStore.WpfApp
 {
@@ -15,6 +16,9 @@ namespace ShoeStore.WpfApp
             // При первом запуске заполняем базу данных из Excel-файлов
             using (var context = new ShoeStoreDbContext())
             {
+                context.Database.EnsureDeleted();
+                context.Database.EnsureCreated();
+
                 if (!context.Users.Any())
                 {
                     var seeder = new ShoeStoreDbSeeder(context);
@@ -22,8 +26,8 @@ namespace ShoeStore.WpfApp
                     seeder.Seed(
                         Path.Combine(baseDir, "Assets", "user_import.xlsx"),
                         Path.Combine(baseDir, "Assets", "Tovar.xlsx"),
-                        Path.Combine(baseDir, "Assets", "PickUpPoints.xlsx"),
-                        Path.Combine(baseDir, "Assets", "Orders.xlsx"));
+                        Path.Combine(baseDir, "Assets", "Пункты выдачи_import.xlsx"),
+                        Path.Combine(baseDir, "Assets", "Заказ_import.xlsx"));
                 }
             }
 

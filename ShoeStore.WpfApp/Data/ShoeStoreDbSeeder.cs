@@ -18,8 +18,6 @@ namespace ShoeStore.WpfApp.Data
         public void Seed(string usersFilePath, string productsFilePath, string pickUpPointsFilePath, string ordersFilePath)
         {
             // Пересоздаём базу данных
-            _context.Database.EnsureDeleted();
-            _context.Database.EnsureCreated();
 
             ExcelPackage.License.SetNonCommercialPersonal("Gustavo");
 

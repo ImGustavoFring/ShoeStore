@@ -56,14 +56,15 @@ SIZE: 2040 chars
 
 ============================================================
 FILE: ShoeStore.WpfApp\App.xaml.cs
-SIZE: 1141 chars
+SIZE: 1293 chars
 ============================================================
 
-﻿using System;
-using System.IO;
-using System.Windows;
+﻿using Microsoft.EntityFrameworkCore;
 using ShoeStore.WpfApp.Data;
 using ShoeStore.WpfApp.Views;
+using System;
+using System.IO;
+using System.Windows;
 
 namespace ShoeStore.WpfApp
 {
@@ -76,6 +77,9 @@ namespace ShoeStore.WpfApp
             // При первом запуске заполняем базу данных из Excel-файлов
             using (var context = new ShoeStoreDbContext())
             {
+                context.Database.EnsureDeleted();
+                context.Database.EnsureCreated();
+
                 if (!context.Users.Any())
                 {
                     var seeder = new ShoeStoreDbSeeder(context);
@@ -83,8 +87,8 @@ namespace ShoeStore.WpfApp
                     seeder.Seed(
                         Path.Combine(baseDir, "Assets", "user_import.xlsx"),
                         Path.Combine(baseDir, "Assets", "Tovar.xlsx"),
-                        Path.Combine(baseDir, "Assets", "PickUpPoints.xlsx"),
-                        Path.Combine(baseDir, "Assets", "Orders.xlsx"));
+                        Path.Combine(baseDir, "Assets", "Пункты выдачи_import.xlsx"),
+                        Path.Combine(baseDir, "Assets", "Заказ_import.xlsx"));
                 }
             }
 
@@ -864,7 +868,7 @@ namespace ShoeStore.WpfApp.Data
 
 ============================================================
 FILE: ShoeStore.WpfApp\Data\ShoeStoreDbSeeder.cs
-SIZE: 17825 chars
+SIZE: 17731 chars
 ============================================================
 
 ﻿using OfficeOpenXml;
@@ -887,8 +891,6 @@ namespace ShoeStore.WpfApp.Data
         public void Seed(string usersFilePath, string productsFilePath, string pickUpPointsFilePath, string ordersFilePath)
         {
             // Пересоздаём базу данных
-            _context.Database.EnsureDeleted();
-            _context.Database.EnsureCreated();
 
             ExcelPackage.License.SetNonCommercialPersonal("Gustavo");
 
