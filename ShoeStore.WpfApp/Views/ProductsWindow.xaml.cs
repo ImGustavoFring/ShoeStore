@@ -17,6 +17,7 @@ namespace ShoeStore.WpfApp.Views
         private string _currentUserFullName;
         private ObservableCollection<Product> _allProducts;
         private bool _isEditWindowOpen = false;
+        private bool _isLoaded = false;
 
         public string CurrentUserRole => _currentUserRole;
         public string CurrentUserFullName => _currentUserFullName;
@@ -32,6 +33,8 @@ namespace ShoeStore.WpfApp.Views
 
             LoadSuppliers();
             LoadProducts();
+            _isLoaded = true;
+            ApplyFilter(); // применить фильтр после полной загрузки
         }
 
         private void LoadSuppliers()
@@ -39,9 +42,13 @@ namespace ShoeStore.WpfApp.Views
             using (var context = new ShoeStoreDbContext())
             {
                 var suppliers = context.Suppliers.OrderBy(s => s.Name).ToList();
-                SupplierFilterComboBox.ItemsSource = suppliers;
+
+                // Создаём новый список, начинающийся с "Все поставщики"
+                var supplierList = new List<Supplier> { new Supplier { Id = 0, Name = "Все поставщики" } };
+                supplierList.AddRange(suppliers);
+
+                SupplierFilterComboBox.ItemsSource = supplierList;
                 SupplierFilterComboBox.DisplayMemberPath = "Name";
-                SupplierFilterComboBox.Items.Insert(0, new Supplier { Id = 0, Name = "Все поставщики" });
                 SupplierFilterComboBox.SelectedIndex = 0;
             }
         }
@@ -68,11 +75,12 @@ namespace ShoeStore.WpfApp.Views
                                 MessageBoxButton.OK, MessageBoxImage.Error);
                 _allProducts = new ObservableCollection<Product>(); // пустая коллекция вместо null
             }
-            ApplyFilter(); // всегда применяем фильтр, даже если список пуст
         }
 
         private void ApplyFilter()
         {
+            if (_allProducts == null) return;
+
             var filtered = _allProducts.AsEnumerable();
 
             // Поиск
@@ -109,9 +117,20 @@ namespace ShoeStore.WpfApp.Views
         }
 
         // Обработчики фильтрации
-        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
-        private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyFilter();
-        private void SupplierFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyFilter();
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isLoaded) ApplyFilter();
+        }
+
+        private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoaded) ApplyFilter();
+        }
+
+        private void SupplierFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoaded) ApplyFilter();
+        }
 
         // CRUD
         private void AddProduct_Click(object sender, RoutedEventArgs e)

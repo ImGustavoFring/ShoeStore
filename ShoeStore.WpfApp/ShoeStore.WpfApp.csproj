@@ -37,6 +37,14 @@
   </ItemGroup>
 
 	<ItemGroup>
+		<Resource Include="Assets\*.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Resource Include="Assets\*.JPG" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Content Include="Assets\*.xlsx">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
