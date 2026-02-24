@@ -1,8 +1,10 @@
-﻿<Window x:Class="ShoeStore.WpfApp.Views.OrdersWindow"
+<Window x:Class="ShoeStore.WpfApp.Views.OrdersWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:ShoeStore.WpfApp.Converters"
-        Title="Заказы" Height="600" Width="1000"
+        Title="Заказы"
+        Height="600"
+        Width="1000"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
@@ -16,24 +18,52 @@
         </Grid.RowDefinitions>
 
         <!-- Панель кнопок для администратора -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10"
+        <StackPanel Grid.Row="0"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Margin="10"
                     Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=Admin}">
-            <Button Content="Добавить" Width="100" Margin="5" Click="AddOrder_Click"/>
-            <Button Content="Изменить" Width="100" Margin="5" Click="EditOrder_Click"/>
-            <Button Content="Удалить" Width="100" Margin="5" Click="DeleteOrder_Click"/>
+            <Button Content="Добавить"
+                    Width="100"
+                    Margin="5"
+                    Click="AddOrder_Click"/>
+            <Button Content="Изменить"
+                    Width="100"
+                    Margin="5"
+                    Click="EditOrder_Click"/>
+            <Button Content="Удалить"
+                    Width="100"
+                    Margin="5"
+                    Click="DeleteOrder_Click"/>
         </StackPanel>
 
         <!-- Список заказов -->
-        <DataGrid Grid.Row="1" x:Name="OrdersDataGrid" Margin="10"
+        <DataGrid Grid.Row="1"
+                x:Name="OrdersDataGrid"
+                Margin="10"
                   ItemsSource="{Binding Orders}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="Auto"/>
-                <DataGridTextColumn Header="Дата заказа" Binding="{Binding OrderDate, StringFormat=d}" Width="Auto"/>
-                <DataGridTextColumn Header="Дата доставки" Binding="{Binding DeliveryDate, StringFormat=d}" Width="Auto"/>
-                <DataGridTextColumn Header="Клиент" Binding="{Binding User.FullName}" Width="*"/>
-                <DataGridTextColumn Header="Пункт выдачи" Binding="{Binding PickUpPoint.City}" Width="Auto"/>
-                <DataGridTextColumn Header="Код получения" Binding="{Binding ReceiptCode}" Width="Auto"/>
-                <DataGridTextColumn Header="Статус" Binding="{Binding Status.Name}" Width="Auto"/>
+                <DataGridTextColumn Header="Номер"
+                        Binding="{Binding Number}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Дата заказа"
+                        Binding="{Binding OrderDate, StringFormat=d}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Дата доставки"
+                        Binding="{Binding DeliveryDate, StringFormat=d}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Клиент"
+                        Binding="{Binding User.FullName}"
+                        Width="*"/>
+                <DataGridTextColumn Header="Пункт выдачи"
+                        Binding="{Binding PickUpPoint.City}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Код получения"
+                        Binding="{Binding ReceiptCode}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Статус"
+                        Binding="{Binding Status.Name}"
+                        Width="Auto"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

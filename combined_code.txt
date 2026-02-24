@@ -1,6 +1,6 @@
 === C# SOLUTION STRUCTURE ===
 Solution Path: C:\Projects\KTK\ShoeStore
-Total Files: 44
+Total Files: 49
 
 
 ============================================================
@@ -56,11 +56,14 @@ SIZE: 2040 chars
 
 ============================================================
 FILE: ShoeStore.WpfApp\App.xaml.cs
-SIZE: 375 chars
+SIZE: 1141 chars
 ============================================================
 
-﻿using System.Windows;
-using ShoeStore.WpfApp.Views;  // предположим, окна будут в папке Views
+﻿using System;
+using System.IO;
+using System.Windows;
+using ShoeStore.WpfApp.Data;
+using ShoeStore.WpfApp.Views;
 
 namespace ShoeStore.WpfApp
 {
@@ -69,6 +72,23 @@ namespace ShoeStore.WpfApp
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // При первом запуске заполняем базу данных из Excel-файлов
+            using (var context = new ShoeStoreDbContext())
+            {
+                if (!context.Users.Any())
+                {
+                    var seeder = new ShoeStoreDbSeeder(context);
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    seeder.Seed(
+                        Path.Combine(baseDir, "Assets", "user_import.xlsx"),
+                        Path.Combine(baseDir, "Assets", "Tovar.xlsx"),
+                        Path.Combine(baseDir, "Assets", "PickUpPoints.xlsx"),
+                        Path.Combine(baseDir, "Assets", "Orders.xlsx"));
+                }
+            }
+
+            // Запускаем окно входа
             var loginWindow = new LoginWindow();
             loginWindow.Show();
         }
@@ -102,6 +122,117 @@ namespace ShoeStore.WpfApp.Converters
 }
 
 ============================================================
+FILE: ShoeStore.WpfApp\Converters\DiscountToForegroundConverter.cs
+SIZE: 623 chars
+============================================================
+
+﻿using System;
+using System.Globalization;
+using System.Windows.Data;
+using System.Windows.Media;
+
+namespace ShoeStore.WpfApp.Converters
+{
+    public class DiscountToForegroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal discount && discount > 0)
+                return Brushes.Red;
+            return Brushes.Black;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Converters\DiscountToTextDecorationConverter.cs
+SIZE: 630 chars
+============================================================
+
+﻿using System;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+
+namespace ShoeStore.WpfApp.Converters
+{
+    public class DiscountToTextDecorationConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal discount && discount > 0)
+                return TextDecorations.Strikethrough;
+            return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Converters\DiscountToVisibilityConverter.cs
+SIZE: 631 chars
+============================================================
+
+﻿using System;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+
+namespace ShoeStore.WpfApp.Converters
+{
+    public class DiscountToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal discount && discount > 0)
+                return Visibility.Visible;
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Converters\PathToImageConverter.cs
+SIZE: 939 chars
+============================================================
+
+﻿using System;
+using System.Globalization;
+using System.IO;
+using System.Windows.Data;
+using System.Windows.Media.Imaging;
+
+namespace ShoeStore.WpfApp.Converters
+{
+    public class PathToImageConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string path = value as string;
+            if (!string.IsNullOrEmpty(path))
+            {
+                string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+                if (File.Exists(fullPath))
+                    return new BitmapImage(new Uri(fullPath));
+            }
+            // Заглушка
+            return new BitmapImage(new Uri("pack://application:,,,/Assets/picture.png"));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
+
+============================================================
 FILE: ShoeStore.WpfApp\Converters\PriceWithDiscountMultiConverter.cs
 SIZE: 753 chars
 ============================================================
@@ -122,6 +253,37 @@ namespace ShoeStore.WpfApp.Converters
                 return result.ToString("N2", culture);
             }
             return "0.00";
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+}
+
+============================================================
+FILE: ShoeStore.WpfApp\Converters\ProductRowBackgroundMultiConverter.cs
+SIZE: 915 chars
+============================================================
+
+﻿using System;
+using System.Globalization;
+using System.Windows.Data;
+using System.Windows.Media;
+
+namespace ShoeStore.WpfApp.Converters
+{
+    public class ProductRowBackgroundMultiConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length == 2 && values[0] is decimal discount && values[1] is long quantity)
+            {
+                if (quantity == 0)
+                    return new SolidColorBrush(Colors.LightBlue);
+                if (discount > 15)
+                    return new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E8B57"));
+            }
+            return Brushes.Transparent;
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
@@ -702,13 +864,11 @@ namespace ShoeStore.WpfApp.Data
 
 ============================================================
 FILE: ShoeStore.WpfApp\Data\ShoeStoreDbSeeder.cs
-SIZE: 18903 chars
+SIZE: 17825 chars
 ============================================================
 
 ﻿using OfficeOpenXml;
-using ShoeStore.WpfApp.Data;
 using ShoeStore.WpfApp.Models;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -730,6 +890,8 @@ namespace ShoeStore.WpfApp.Data
             _context.Database.EnsureDeleted();
             _context.Database.EnsureCreated();
 
+            ExcelPackage.License.SetNonCommercialPersonal("Gustavo");
+
             // Словари для быстрого поиска справочников
             var roles = new Dictionary<string, Role>();
             var statuses = new Dictionary<string, Status>();
@@ -738,178 +900,122 @@ namespace ShoeStore.WpfApp.Data
             var manufacturers = new Dictionary<string, Manufacturer>();
             var categories = new Dictionary<string, Category>();
             var articles = new Dictionary<string, Article>();
-            var pickUpPoints = new List<PickUpPoint>();
-            var users = new List<User>();
+            var pickUpPointsByIndex = new Dictionary<int, PickUpPoint>();
 
-            // 1. Заполнение ролей (из user_import.xlsx)
+            // 1. Заполнение справочников (кроме Article)
+            // Роли из user_import.xlsx
             using (var package = new ExcelPackage(new FileInfo(usersFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                var uniqueRoles = new HashSet<string>();
+                var roleNames = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
                     string roleName = worksheet.Cells[row, 1].Text.Trim();
                     if (!string.IsNullOrEmpty(roleName))
-                        uniqueRoles.Add(roleName);
+                        roleNames.Add(roleName);
                 }
-
-                foreach (var roleName in uniqueRoles)
+                foreach (var name in roleNames)
                 {
-                    var role = new Role { Name = roleName };
+                    var role = new Role { Name = name };
+                    roles[name] = role;
                     _context.Roles.Add(role);
-                    roles[roleName] = role;
                 }
-                _context.SaveChanges();
             }
 
-            // 2. Статусы заказов
+            // Статусы заказов
             var orderStatuses = new[] { "Новый", "Завершен" };
-            foreach (var statusName in orderStatuses)
+            foreach (var name in orderStatuses)
             {
-                var status = new Status { Name = statusName };
+                var status = new Status { Name = name };
+                statuses[name] = status;
                 _context.Statuses.Add(status);
-                statuses[statusName] = status;
             }
-            _context.SaveChanges();
 
-            // 3. Единицы измерения (из Tovar.xlsx)
+            // Единицы измерения из Tovar.xlsx
             using (var package = new ExcelPackage(new FileInfo(productsFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                var uniqueUnits = new HashSet<string>();
+                var unitNames = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
                     string unitName = worksheet.Cells[row, 3].Text.Trim(); // колонка C
                     if (!string.IsNullOrEmpty(unitName))
-                        uniqueUnits.Add(unitName);
+                        unitNames.Add(unitName);
                 }
-
-                foreach (var unitName in uniqueUnits)
+                foreach (var name in unitNames)
                 {
-                    var unit = new Unit { Name = unitName };
+                    var unit = new Unit { Name = name };
+                    units[name] = unit;
                     _context.Units.Add(unit);
-                    units[unitName] = unit;
                 }
-                _context.SaveChanges();
             }
 
-            // 4. Поставщики
+            // Поставщики из Tovar.xlsx
             using (var package = new ExcelPackage(new FileInfo(productsFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                var uniqueSuppliers = new HashSet<string>();
+                var supplierNames = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
                     string supplierName = worksheet.Cells[row, 5].Text.Trim(); // колонка E
                     if (!string.IsNullOrEmpty(supplierName))
-                        uniqueSuppliers.Add(supplierName);
+                        supplierNames.Add(supplierName);
                 }
-
-                foreach (var supplierName in uniqueSuppliers)
+                foreach (var name in supplierNames)
                 {
-                    var supplier = new Supplier { Name = supplierName };
+                    var supplier = new Supplier { Name = name };
+                    suppliers[name] = supplier;
                     _context.Suppliers.Add(supplier);
-                    suppliers[supplierName] = supplier;
                 }
-                _context.SaveChanges();
             }
 
-            // 5. Производители
+            // Производители из Tovar.xlsx
             using (var package = new ExcelPackage(new FileInfo(productsFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                var uniqueManufacturers = new HashSet<string>();
+                var manufacturerNames = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
                     string manufacturerName = worksheet.Cells[row, 6].Text.Trim(); // колонка F
                     if (!string.IsNullOrEmpty(manufacturerName))
-                        uniqueManufacturers.Add(manufacturerName);
+                        manufacturerNames.Add(manufacturerName);
                 }
-
-                foreach (var manufacturerName in uniqueManufacturers)
+                foreach (var name in manufacturerNames)
                 {
-                    var manufacturer = new Manufacturer { Name = manufacturerName };
+                    var manufacturer = new Manufacturer { Name = name };
+                    manufacturers[name] = manufacturer;
                     _context.Manufacturers.Add(manufacturer);
-                    manufacturers[manufacturerName] = manufacturer;
                 }
-                _context.SaveChanges();
             }
 
-            // 6. Категории
+            // Категории из Tovar.xlsx
             using (var package = new ExcelPackage(new FileInfo(productsFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                var uniqueCategories = new HashSet<string>();
+                var categoryNames = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
                     string categoryName = worksheet.Cells[row, 7].Text.Trim(); // колонка G
                     if (!string.IsNullOrEmpty(categoryName))
-                        uniqueCategories.Add(categoryName);
+                        categoryNames.Add(categoryName);
                 }
-
-                foreach (var categoryName in uniqueCategories)
+                foreach (var name in categoryNames)
                 {
-                    var category = new Category { Name = categoryName };
+                    var category = new Category { Name = name };
+                    categories[name] = category;
                     _context.Categories.Add(category);
-                    categories[categoryName] = category;
                 }
-                _context.SaveChanges();
             }
 
-            // 7. Пункты выдачи (парсим адреса)
-            using (var package = new ExcelPackage(new FileInfo(pickUpPointsFilePath)))
-            {
-                var worksheet = package.Workbook.Worksheets[0];
-                int rowCount = worksheet.Dimension.Rows;
-                for (int row = 2; row <= rowCount; row++) // с первой строки данных (после заголовка)
-                {
-                    string address = worksheet.Cells[row, 1].Text.Trim();
-                    if (string.IsNullOrEmpty(address)) continue;
+            // Сохраняем все справочники, чтобы получить ID
+            _context.SaveChanges();
 
-                    // Разделяем по запятым
-                    var parts = address.Split(',').Select(p => p.Trim()).ToArray();
-                    if (parts.Length < 3) continue; // минимум индекс, город, улица
-
-                    // Индекс
-                    if (!long.TryParse(parts[0], out long postCode))
-                        continue;
-
-                    // Город (убираем "г. " или "г.")
-                    string city = Regex.Replace(parts[1], @"^г\.?\s*", "", RegexOptions.IgnoreCase).Trim();
-
-                    // Улица (убираем "ул. ")
-                    string street = Regex.Replace(parts[2], @"^ул\.?\s*", "", RegexOptions.IgnoreCase).Trim();
-
-                    // Дом (последняя часть, если есть)
-                    long house = 0;
-                    if (parts.Length >= 4)
-                    {
-                        string housePart = parts[3];
-                        // Извлекаем первое число
-                        var match = Regex.Match(housePart, @"\d+");
-                        if (match.Success)
-                            long.TryParse(match.Value, out house);
-                    }
-
-                    var point = new PickUpPoint
-                    {
-                        PostCode = postCode,
-                        City = city,
-                        Street = street,
-                        House = house
-                    };
-                    _context.PickUpPoints.Add(point);
-                    pickUpPoints.Add(point);
-                }
-                _context.SaveChanges();
-            }
-
-            // 8. Пользователи
+            // 2. Пользователи
             using (var package = new ExcelPackage(new FileInfo(usersFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
@@ -933,22 +1039,82 @@ namespace ShoeStore.WpfApp.Data
                         FullName = fullName,
                         Login = login,
                         Password = password,
-                        Role = role
+                        RoleId = role.Id
                     };
                     _context.Users.Add(user);
-                    users.Add(user);
                 }
                 _context.SaveChanges();
             }
 
-            // 9. Товары (Article и Product)
+            // Загружаем пользователей в память для поиска по ФИО
+            var usersList = _context.Users.ToList();
+
+            // 3. Пункты выдачи (в файле нет заголовка, начинаем с первой строки)
+            using (var package = new ExcelPackage(new FileInfo(pickUpPointsFilePath)))
+            {
+                var worksheet = package.Workbook.Worksheets[0];
+                int rowCount = worksheet.Dimension.Rows;
+                for (int row = 1; row <= rowCount; row++)
+                {
+                    string address = worksheet.Cells[row, 1].Text.Trim();
+                    if (string.IsNullOrEmpty(address)) continue;
+
+                    var parts = address.Split(',').Select(p => p.Trim()).ToArray();
+                    if (parts.Length < 3) continue;
+
+                    if (!long.TryParse(parts[0], out long postCode))
+                        continue;
+
+                    string city = Regex.Replace(parts[1], @"^г\.?\s*", "", RegexOptions.IgnoreCase).Trim();
+                    string street = Regex.Replace(parts[2], @"^ул\.?\s*", "", RegexOptions.IgnoreCase).Trim();
+
+                    long house = 0;
+                    if (parts.Length >= 4)
+                    {
+                        var match = Regex.Match(parts[3], @"\d+");
+                        if (match.Success)
+                            long.TryParse(match.Value, out house);
+                    }
+
+                    var point = new PickUpPoint
+                    {
+                        PostCode = postCode,
+                        City = city,
+                        Street = street,
+                        House = house
+                    };
+                    _context.PickUpPoints.Add(point);
+                    pickUpPointsByIndex[row] = point; // сохраняем соответствие индексу строки
+                }
+                _context.SaveChanges();
+            }
+
+            // 4. Товары: сначала артикулы, потом продукты
             using (var package = new ExcelPackage(new FileInfo(productsFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
+
+                // Собираем уникальные артикулы
+                var articleTitles = new HashSet<string>();
                 for (int row = 2; row <= rowCount; row++)
                 {
-                    string articleTitle = worksheet.Cells[row, 1].Text.Trim(); // Артикул
+                    string title = worksheet.Cells[row, 1].Text.Trim();
+                    if (!string.IsNullOrEmpty(title))
+                        articleTitles.Add(title);
+                }
+                foreach (var title in articleTitles)
+                {
+                    var article = new Article { Title = title };
+                    articles[title] = article;
+                    _context.Articles.Add(article);
+                }
+                _context.SaveChanges();
+
+                // Создаём продукты
+                for (int row = 2; row <= rowCount; row++)
+                {
+                    string articleTitle = worksheet.Cells[row, 1].Text.Trim();
                     string productName = worksheet.Cells[row, 2].Text.Trim();
                     string unitName = worksheet.Cells[row, 3].Text.Trim();
                     string priceStr = worksheet.Cells[row, 4].Text.Trim();
@@ -963,32 +1129,13 @@ namespace ShoeStore.WpfApp.Data
                     if (string.IsNullOrEmpty(articleTitle) || string.IsNullOrEmpty(productName))
                         continue;
 
-                    // Артикул (уникальный)
-                    if (!articles.ContainsKey(articleTitle))
-                    {
-                        var article = new Article { Title = articleTitle };
-                        _context.Articles.Add(article);
-                        articles[articleTitle] = article;
-                        _context.SaveChanges(); // сохраняем, чтобы получить Id
-                    }
-
-                    // Единица измерения
-                    if (!units.TryGetValue(unitName, out var unit))
+                    if (!articles.TryGetValue(articleTitle, out var article) ||
+                        !units.TryGetValue(unitName, out var unit) ||
+                        !suppliers.TryGetValue(supplierName, out var supplier) ||
+                        !manufacturers.TryGetValue(manufacturerName, out var manufacturer) ||
+                        !categories.TryGetValue(categoryName, out var category))
                         continue;
 
-                    // Поставщик
-                    if (!suppliers.TryGetValue(supplierName, out var supplier))
-                        continue;
-
-                    // Производитель
-                    if (!manufacturers.TryGetValue(manufacturerName, out var manufacturer))
-                        continue;
-
-                    // Категория
-                    if (!categories.TryGetValue(categoryName, out var category))
-                        continue;
-
-                    // Парсинг чисел
                     if (!decimal.TryParse(priceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal price))
                         continue;
                     if (!decimal.TryParse(discountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount))
@@ -998,13 +1145,13 @@ namespace ShoeStore.WpfApp.Data
 
                     var product = new Product
                     {
-                        Article = articles[articleTitle],
+                        ArticleId = article.Id,
                         Name = productName,
-                        Unit = unit,
+                        UnitId = unit.Id,
                         Price = price,
-                        Supplier = supplier,
-                        Manufacturer = manufacturer,
-                        Category = category,
+                        SupplierId = supplier.Id,
+                        ManufacturerId = manufacturer.Id,
+                        CategoryId = category.Id,
                         Discount = discount,
                         QuantityInStock = quantity,
                         Description = description,
@@ -1015,18 +1162,18 @@ namespace ShoeStore.WpfApp.Data
                 _context.SaveChanges();
             }
 
-            // 10. Заказы
+            // 5. Заказы
             using (var package = new ExcelPackage(new FileInfo(ordersFilePath)))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 int rowCount = worksheet.Dimension.Rows;
-                for (int row = 2; row <= rowCount; row++)
+                for (int row = 2; row <= rowCount; row++) // первая строка — заголовки
                 {
                     string orderNumberStr = worksheet.Cells[row, 1].Text.Trim();
                     string articlesLine = worksheet.Cells[row, 2].Text.Trim();
                     string orderDateStr = worksheet.Cells[row, 3].Text.Trim();
                     string deliveryDateStr = worksheet.Cells[row, 4].Text.Trim();
-                    string pickUpPointIdStr = worksheet.Cells[row, 5].Text.Trim();
+                    string pickUpPointIndexStr = worksheet.Cells[row, 5].Text.Trim();
                     string customerFullName = worksheet.Cells[row, 6].Text.Trim();
                     string receiptCodeStr = worksheet.Cells[row, 7].Text.Trim();
                     string statusName = worksheet.Cells[row, 8].Text.Trim();
@@ -1034,29 +1181,20 @@ namespace ShoeStore.WpfApp.Data
                     if (string.IsNullOrEmpty(orderNumberStr) || string.IsNullOrEmpty(articlesLine))
                         continue;
 
-                    if (!long.TryParse(orderNumberStr, out long orderNumber))
-                        continue;
-                    if (!long.TryParse(pickUpPointIdStr, out long pickUpPointId))
-                        continue;
-                    if (!long.TryParse(receiptCodeStr, out long receiptCode))
-                        continue;
-                    if (!statuses.TryGetValue(statusName, out var status))
+                    if (!long.TryParse(orderNumberStr, out long orderNumber) ||
+                        !int.TryParse(pickUpPointIndexStr, out int pickUpPointIndex) ||
+                        !long.TryParse(receiptCodeStr, out long receiptCode) ||
+                        !statuses.TryGetValue(statusName, out var status))
                         continue;
 
-                    // Поиск пользователя по ФИО
-                    var user = users.FirstOrDefault(u => u.FullName.Equals(customerFullName, StringComparison.OrdinalIgnoreCase));
-                    if (user == null)
-                        continue; // пропускаем заказ, если пользователь не найден
+                    var user = usersList.FirstOrDefault(u => u.FullName.Equals(customerFullName, StringComparison.OrdinalIgnoreCase));
+                    if (user == null) continue;
 
-                    // Поиск пункта выдачи по Id (предполагаем, что Id соответствуют порядку)
-                    var pickUpPoint = pickUpPoints.FirstOrDefault(p => p.Id == pickUpPointId);
-                    if (pickUpPoint == null)
+                    if (!pickUpPointsByIndex.TryGetValue(pickUpPointIndex, out var pickUpPoint))
                         continue;
 
-                    // Парсинг дат с поддержкой разных форматов
-                    if (!TryParseDate(orderDateStr, out DateOnly orderDate))
-                        continue;
-                    if (!TryParseDate(deliveryDateStr, out DateOnly deliveryDate))
+                    if (!TryParseDate(orderDateStr, out DateOnly orderDate) ||
+                        !TryParseDate(deliveryDateStr, out DateOnly deliveryDate))
                         continue;
 
                     var order = new Order
@@ -1064,44 +1202,40 @@ namespace ShoeStore.WpfApp.Data
                         Number = orderNumber,
                         OrderDate = orderDate,
                         DeliveryDate = deliveryDate,
-                        PickUpPoint = pickUpPoint,
-                        User = user,
+                        PickUpPointId = pickUpPoint.Id,
+                        UserId = user.Id,
                         ReceiptCode = receiptCode,
-                        Status = status,
+                        StatusId = status.Id,
                         OrderItems = new List<OrderItem>()
                     };
 
-                    // Разбор артикулов и количества
-                    var parts = articlesLine.Split(',').Select(p => p.Trim()).ToArray();
-                    if (parts.Length % 2 != 0)
-                        continue; // нечётное количество элементов — ошибка
+                    var itemParts = articlesLine.Split(',').Select(p => p.Trim()).ToArray();
+                    if (itemParts.Length % 2 != 0) continue;
 
-                    for (int i = 0; i < parts.Length; i += 2)
+                    bool hasItems = false;
+                    for (int i = 0; i < itemParts.Length; i += 2)
                     {
-                        string articleTitle = parts[i];
-                        if (!long.TryParse(parts[i + 1], out long quantity))
+                        string artTitle = itemParts[i];
+                        if (!long.TryParse(itemParts[i + 1], out long quantity))
                             continue;
 
-                        if (!articles.TryGetValue(articleTitle, out var article))
+                        if (!articles.TryGetValue(artTitle, out var article))
                             continue;
 
-                        // Получаем товар по артикулу (предполагаем один Product на Article)
                         var product = _context.Products.FirstOrDefault(p => p.ArticleId == article.Id);
-                        if (product == null)
-                            continue;
+                        if (product == null) continue;
 
                         order.OrderItems.Add(new OrderItem
                         {
-                            Article = article,
+                            ArticleId = article.Id,
                             Quantity = quantity,
-                            Price = product.Price // цена на момент заполнения
+                            Price = product.Price
                         });
+                        hasItems = true;
                     }
 
-                    if (order.OrderItems.Any())
-                    {
+                    if (hasItems)
                         _context.Orders.Add(order);
-                    }
                 }
                 _context.SaveChanges();
             }
@@ -1112,7 +1246,6 @@ namespace ShoeStore.WpfApp.Data
             date = default;
             if (string.IsNullOrEmpty(input)) return false;
 
-            // Пробуем разные форматы
             string[] formats = {
                 "yyyy-MM-dd HH:mm:ss",
                 "dd.MM.yyyy HH:mm:ss",
@@ -1126,7 +1259,7 @@ namespace ShoeStore.WpfApp.Data
                 return true;
             }
 
-            // Спецобработка для "30.02.2025" — заменяем на 28.02.2025
+            // Коррекция для 30.02.2025
             if (input.StartsWith("30.02."))
             {
                 string corrected = "28.02." + input.Substring(6);
@@ -1469,7 +1602,7 @@ namespace ShoeStore.WpfApp.Models
 
 ============================================================
 FILE: ShoeStore.WpfApp\ShoeStore.WpfApp.csproj
-SIZE: 1653 chars
+SIZE: 1853 chars
 ============================================================
 
 ﻿<Project Sdk="Microsoft.NET.Sdk">
@@ -1487,6 +1620,7 @@ SIZE: 1653 chars
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="EPPlus" Version="8.4.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" Version="10.0.3" />
@@ -1509,20 +1643,28 @@ SIZE: 1653 chars
     <Resource Include="Assets\Icon.ico" />
   </ItemGroup>
 
+	<ItemGroup>
+		<Content Include="Assets\*.xlsx">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
 </Project>
 
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\LoginWindow.xaml
-SIZE: 1622 chars
+SIZE: 1989 chars
 ============================================================
 
-﻿<Window x:Class="ShoeStore.WpfApp.Views.LoginWindow"
+<Window x:Class="ShoeStore.WpfApp.Views.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Вход в систему" Height="300" Width="400"
+        Title="Вход в систему"
+        Height="300"
+        Width="400"
         WindowStartupLocation="CenterScreen"
-        Icon="/Assets/shoe.ico"
+        Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
     <Grid>
         <Grid.RowDefinitions>
@@ -1534,33 +1676,56 @@ SIZE: 1622 chars
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <Border Grid.Row="0" Background="{StaticResource SecondaryBackgroundBrush}" Padding="10">
-            <TextBlock Text="Авторизация" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+        <Border Grid.Row="0"
+                Background="{StaticResource SecondaryBackgroundBrush}"
+                Padding="10">
+            <TextBlock Text="Авторизация"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    HorizontalAlignment="Center"/>
         </Border>
 
-        <StackPanel Grid.Row="1" Margin="20,20,20,10">
-            <TextBlock Text="Логин:" Margin="0,0,0,5"/>
-            <TextBox x:Name="LoginTextBox" Height="30"/>
+        <StackPanel Grid.Row="1"
+                Margin="20,20,20,10">
+            <TextBlock Text="Логин:"
+                    Margin="0,0,0,5"/>
+            <TextBox x:Name="LoginTextBox"
+                    Height="30"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Margin="20,10,20,10">
-            <TextBlock Text="Пароль:" Margin="0,0,0,5"/>
-            <PasswordBox x:Name="PasswordBox" Height="30"/>
+        <StackPanel Grid.Row="2"
+                Margin="20,10,20,10">
+            <TextBlock Text="Пароль:"
+                    Margin="0,0,0,5"/>
+            <PasswordBox x:Name="PasswordBox"
+                    Height="30"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20">
-            <Button Content="Войти" Width="100" Margin="0,0,10,0" Click="LoginButton_Click"/>
-            <Button Content="Как гость" Width="120" Click="GuestButton_Click"/>
+        <StackPanel Grid.Row="3"
+                Orientation="Horizontal"
+                HorizontalAlignment="Center"
+                Margin="0,20">
+            <Button Content="Войти"
+                    Width="100"
+                    Margin="0,0,10,0"
+                    Click="LoginButton_Click"/>
+            <Button Content="Как гость"
+                    Width="120"
+                    Click="GuestButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\LoginWindow.xaml.cs
-SIZE: 424 chars
+SIZE: 1815 chars
 ============================================================
 
-﻿using System.Windows;
+using System.Linq;
+using System.Windows;
+using Microsoft.EntityFrameworkCore;
+using ShoeStore.WpfApp.Data;
+using ShoeStore.WpfApp.Views;
 
 namespace ShoeStore.WpfApp.Views
 {
@@ -1571,23 +1736,62 @@ namespace ShoeStore.WpfApp.Views
             InitializeComponent();
         }
 
-        // Временные заглушки обработчиков (добавьте логику позже)
-        private void LoginButton_Click(object sender, RoutedEventArgs e) { }
-        private void GuestButton_Click(object sender, RoutedEventArgs e) { }
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        {
+            string login = LoginTextBox.Text.Trim();
+            string password = PasswordBox.Password.Trim();
+
+            if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("Введите логин и пароль", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                using (var context = new ShoeStoreDbContext())
+                {
+                    var user = context.Users
+                        .Include(u => u.Role)
+                        .FirstOrDefault(u => u.Login == login && u.Password == password);
+                    if (user != null)
+                    {
+                        new ProductsWindow(user).Show();
+                        Close();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Неверный логин или пароль", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void GuestButton_Click(object sender, RoutedEventArgs e)
+        {
+            new ProductsWindow(null).Show(); // null – гость
+            Close();
+        }
     }
 }
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\OrderEditWindow.xaml
-SIZE: 2681 chars
+SIZE: 3320 chars
 ============================================================
 
-﻿<Window x:Class="ShoeStore.WpfApp.Views.OrderEditWindow"
+<Window x:Class="ShoeStore.WpfApp.Views.OrderEditWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Редактирование заказа" Height="600" Width="800"
+        Title="Редактирование заказа"
+        Height="600"
+        Width="800"
         WindowStartupLocation="CenterOwner"
-        Icon="/Assets/shoe.ico"
+        Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -1596,55 +1800,86 @@ SIZE: 2681 chars
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="5">
+        <StackPanel Grid.Row="0"
+                Margin="5">
             <TextBlock Text="Клиент:"/>
-            <ComboBox x:Name="UserComboBox" DisplayMemberPath="FullName" Margin="0,0,0,10"/>
+            <ComboBox x:Name="UserComboBox"
+                    DisplayMemberPath="FullName"
+                    Margin="0,0,0,10"/>
 
             <TextBlock Text="Пункт выдачи:"/>
-            <ComboBox x:Name="PickUpPointComboBox" DisplayMemberPath="Address" Margin="0,0,0,10"/>
+            <ComboBox x:Name="PickUpPointComboBox"
+                    DisplayMemberPath="Address"
+                    Margin="0,0,0,10"/>
 
             <TextBlock Text="Дата заказа:"/>
-            <DatePicker x:Name="OrderDatePicker" Margin="0,0,0,10"/>
+            <DatePicker x:Name="OrderDatePicker"
+                    Margin="0,0,0,10"/>
 
             <TextBlock Text="Дата доставки:"/>
-            <DatePicker x:Name="DeliveryDatePicker" Margin="0,0,0,10"/>
+            <DatePicker x:Name="DeliveryDatePicker"
+                    Margin="0,0,0,10"/>
 
             <TextBlock Text="Статус:"/>
-            <ComboBox x:Name="StatusComboBox" DisplayMemberPath="Name" Margin="0,0,0,10"/>
+            <ComboBox x:Name="StatusComboBox"
+                    DisplayMemberPath="Name"
+                    Margin="0,0,0,10"/>
         </StackPanel>
 
-        <DataGrid Grid.Row="1" x:Name="OrderItemsGrid" AutoGenerateColumns="False" Margin="10">
+        <DataGrid Grid.Row="1"
+                x:Name="OrderItemsGrid"
+                AutoGenerateColumns="False"
+                Margin="10">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Артикул" Binding="{Binding Article.Title}"/>
-                <DataGridTextColumn Header="Количество" Binding="{Binding Quantity}"/>
-                <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}"/>
+                <DataGridTextColumn Header="Артикул"
+                        Binding="{Binding Article.Title}"/>
+                <DataGridTextColumn Header="Количество"
+                        Binding="{Binding Quantity}"/>
+                <DataGridTextColumn Header="Цена"
+                        Binding="{Binding Price, StringFormat=N2}"/>
                 <DataGridTemplateColumn Header="Удалить">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="X" Width="30" Click="RemoveItem_Click"/>
+                            <Button Content="X"
+                                    Width="30"
+                                    Click="RemoveItem_Click"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-            <Button Content="Добавить товар" Width="120" Click="AddItem_Click"/>
+        <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top">
+            <Button Content="Добавить товар"
+                    Width="120"
+                    Click="AddItem_Click"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Сохранить" Width="100" Margin="5" Click="Save_Click"/>
-            <Button Content="Отмена" Width="100" Margin="5" Click="Cancel_Click"/>
+        <StackPanel Grid.Row="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Margin="0,20,0,0">
+            <Button Content="Сохранить"
+                    Width="100"
+                    Margin="5"
+                    Click="Save_Click"/>
+            <Button Content="Отмена"
+                    Width="100"
+                    Margin="5"
+                    Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\OrderEditWindow.xaml.cs
-SIZE: 502 chars
+SIZE: 501 chars
 ============================================================
 
-﻿using System.Windows;
+using System.Windows;
 
 namespace ShoeStore.WpfApp.Views
 {
@@ -1664,16 +1899,18 @@ namespace ShoeStore.WpfApp.Views
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\OrdersWindow.xaml
-SIZE: 2306 chars
+SIZE: 2917 chars
 ============================================================
 
-﻿<Window x:Class="ShoeStore.WpfApp.Views.OrdersWindow"
+<Window x:Class="ShoeStore.WpfApp.Views.OrdersWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:ShoeStore.WpfApp.Converters"
-        Title="Заказы" Height="600" Width="1000"
+        Title="Заказы"
+        Height="600"
+        Width="1000"
         WindowStartupLocation="CenterScreen"
-        Icon="/Assets/shoe.ico"
+        Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
     <Window.Resources>
         <converters:RoleToVisibilityConverter x:Key="RoleToVisibilityConverter"/>
@@ -1685,24 +1922,52 @@ SIZE: 2306 chars
         </Grid.RowDefinitions>
 
         <!-- Панель кнопок для администратора -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10"
+        <StackPanel Grid.Row="0"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Margin="10"
                     Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=Admin}">
-            <Button Content="Добавить" Width="100" Margin="5" Click="AddOrder_Click"/>
-            <Button Content="Изменить" Width="100" Margin="5" Click="EditOrder_Click"/>
-            <Button Content="Удалить" Width="100" Margin="5" Click="DeleteOrder_Click"/>
+            <Button Content="Добавить"
+                    Width="100"
+                    Margin="5"
+                    Click="AddOrder_Click"/>
+            <Button Content="Изменить"
+                    Width="100"
+                    Margin="5"
+                    Click="EditOrder_Click"/>
+            <Button Content="Удалить"
+                    Width="100"
+                    Margin="5"
+                    Click="DeleteOrder_Click"/>
         </StackPanel>
 
         <!-- Список заказов -->
-        <DataGrid Grid.Row="1" x:Name="OrdersDataGrid" Margin="10"
+        <DataGrid Grid.Row="1"
+                x:Name="OrdersDataGrid"
+                Margin="10"
                   ItemsSource="{Binding Orders}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="Auto"/>
-                <DataGridTextColumn Header="Дата заказа" Binding="{Binding OrderDate, StringFormat=d}" Width="Auto"/>
-                <DataGridTextColumn Header="Дата доставки" Binding="{Binding DeliveryDate, StringFormat=d}" Width="Auto"/>
-                <DataGridTextColumn Header="Клиент" Binding="{Binding User.FullName}" Width="*"/>
-                <DataGridTextColumn Header="Пункт выдачи" Binding="{Binding PickUpPoint.City}" Width="Auto"/>
-                <DataGridTextColumn Header="Код получения" Binding="{Binding ReceiptCode}" Width="Auto"/>
-                <DataGridTextColumn Header="Статус" Binding="{Binding Status.Name}" Width="Auto"/>
+                <DataGridTextColumn Header="Номер"
+                        Binding="{Binding Number}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Дата заказа"
+                        Binding="{Binding OrderDate, StringFormat=d}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Дата доставки"
+                        Binding="{Binding DeliveryDate, StringFormat=d}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Клиент"
+                        Binding="{Binding User.FullName}"
+                        Width="*"/>
+                <DataGridTextColumn Header="Пункт выдачи"
+                        Binding="{Binding PickUpPoint.City}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Код получения"
+                        Binding="{Binding ReceiptCode}"
+                        Width="Auto"/>
+                <DataGridTextColumn Header="Статус"
+                        Binding="{Binding Status.Name}"
+                        Width="Auto"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>
@@ -1710,10 +1975,10 @@ SIZE: 2306 chars
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\OrdersWindow.xaml.cs
-SIZE: 431 chars
+SIZE: 430 chars
 ============================================================
 
-﻿using System.Windows;
+using System.Windows;
 
 namespace ShoeStore.WpfApp.Views
 {
@@ -1732,16 +1997,18 @@ namespace ShoeStore.WpfApp.Views
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\ProductEditWindow.xaml
-SIZE: 5790 chars
+SIZE: 8683 chars
 ============================================================
 
-﻿<Window x:Class="ShoeStore.WpfApp.Views.ProductEditWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Редактирование товара" Height="600" Width="800"
-        WindowStartupLocation="CenterOwner"
-        Icon="/Assets/shoe.ico"
-        Background="{StaticResource MainBackgroundBrush}">
+<Window x:Class="ShoeStore.WpfApp.Views.ProductEditWindow"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         Title="Редактирование товара"
+         Height="600"
+         Width="800"
+         WindowStartupLocation="CenterOwner"
+         Icon="/Assets/Icon.ico"
+         Background="{StaticResource MainBackgroundBrush}">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -1749,20 +2016,28 @@ SIZE: 5790 chars
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Данные товара" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+        <TextBlock Grid.Row="0"
+                   Text="Данные товара"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Margin="0,0,0,20"/>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- Артикул (выбор из существующих или новый) -->
-                <GroupBox Header="Артикул" Margin="0,5">
+                <GroupBox Header="Артикул"
+                          Margin="0,5">
                     <StackPanel>
-                        <ComboBox x:Name="ArticleComboBox" DisplayMemberPath="Title" IsEditable="True"
-                                  ItemsSource="{Binding Articles}"/>
+                        <ComboBox x:Name="ArticleComboBox"
+                                  DisplayMemberPath="Title"
+                                  IsEditable="True"/>
                     </StackPanel>
                 </GroupBox>
 
                 <!-- Основные поля -->
-                <GroupBox Header="Основное" Margin="0,5">
+                <GroupBox Header="Основное"
+                          Margin="0,5">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -1774,19 +2049,47 @@ SIZE: 5790 chars
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" Margin="5"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameTextBox" Margin="5"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="Наименование:"
+                                   Margin="5"/>
+                        <TextBox Grid.Row="0"
+                                 Grid.Column="1"
+                                 x:Name="NameTextBox"
+                                 Margin="5"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Описание:" Margin="5"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="DescriptionTextBox" AcceptsReturn="True" Height="60" Margin="5"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="Описание:"
+                                   Margin="5"/>
+                        <TextBox Grid.Row="1"
+                                 Grid.Column="1"
+                                 x:Name="DescriptionTextBox"
+                                 AcceptsReturn="True"
+                                 Height="60"
+                                 Margin="5"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Фото (путь):" Margin="5"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="PhotoPathTextBox" Margin="5"/>
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Text="Фото:"
+                                   Margin="5"/>
+                        <StackPanel Grid.Row="2"
+                                    Grid.Column="1"
+                                    Orientation="Horizontal">
+                            <TextBox x:Name="PhotoPathTextBox"
+                                     Margin="5"
+                                     Width="200"/>
+                            <Button Content="..."
+                                    Width="30"
+                                    Margin="5"
+                                    Click="BrowseImageButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </GroupBox>
 
                 <!-- Справочники -->
-                <GroupBox Header="Справочники" Margin="0,5">
+                <GroupBox Header="Справочники"
+                          Margin="0,5">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition/>
@@ -1799,22 +2102,51 @@ SIZE: 5790 chars
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Категория:" Margin="5"/>
-                        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="CategoryComboBox" DisplayMemberPath="Name" ItemsSource="{Binding Categories}" Margin="5"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="Категория:"
+                                   Margin="5"/>
+                        <ComboBox Grid.Row="0"
+                                  Grid.Column="1"
+                                  x:Name="CategoryComboBox"
+                                  DisplayMemberPath="Name"
+                                  Margin="5"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Производитель:" Margin="5"/>
-                        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="ManufacturerComboBox" DisplayMemberPath="Name" ItemsSource="{Binding Manufacturers}" Margin="5"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="Производитель:"
+                                   Margin="5"/>
+                        <ComboBox Grid.Row="1"
+                                  Grid.Column="1"
+                                  x:Name="ManufacturerComboBox"
+                                  DisplayMemberPath="Name"
+                                  Margin="5"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Поставщик:" Margin="5"/>
-                        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="SupplierComboBox" DisplayMemberPath="Name" ItemsSource="{Binding Suppliers}" Margin="5"/>
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Text="Поставщик:"
+                                   Margin="5"/>
+                        <ComboBox Grid.Row="2"
+                                  Grid.Column="1"
+                                  x:Name="SupplierComboBox"
+                                  DisplayMemberPath="Name"
+                                  Margin="5"/>
 
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Единица измерения:" Margin="5"/>
-                        <ComboBox Grid.Row="3" Grid.Column="1" x:Name="UnitComboBox" DisplayMemberPath="Name" ItemsSource="{Binding Units}" Margin="5"/>
+                        <TextBlock Grid.Row="3"
+                                   Grid.Column="0"
+                                   Text="Единица измерения:"
+                                   Margin="5"/>
+                        <ComboBox Grid.Row="3"
+                                  Grid.Column="1"
+                                  x:Name="UnitComboBox"
+                                  DisplayMemberPath="Name"
+                                  Margin="5"/>
                     </Grid>
                 </GroupBox>
 
                 <!-- Цены и количество -->
-                <GroupBox Header="Цены и наличие" Margin="0,5">
+                <GroupBox Header="Цены и наличие"
+                          Margin="0,5">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition/>
@@ -1826,75 +2158,267 @@ SIZE: 5790 chars
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Цена:" Margin="5"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="PriceTextBox" Margin="5"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="Цена:"
+                                   Margin="5"/>
+                        <TextBox Grid.Row="0"
+                                 Grid.Column="1"
+                                 x:Name="PriceTextBox"
+                                 Margin="5"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Скидка %:" Margin="5"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="DiscountTextBox" Margin="5"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="Скидка %:"
+                                   Margin="5"/>
+                        <TextBox Grid.Row="1"
+                                 Grid.Column="1"
+                                 x:Name="DiscountTextBox"
+                                 Margin="5"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Количество:" Margin="5"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="QuantityTextBox" Margin="5"/>
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Text="Количество:"
+                                   Margin="5"/>
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="1"
+                                 x:Name="QuantityTextBox"
+                                 Margin="5"/>
                     </Grid>
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Сохранить" Width="100" Margin="5" Click="Save_Click"/>
-            <Button Content="Отмена" Width="100" Margin="5" Click="Cancel_Click"/>
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button Content="Сохранить"
+                    Width="100"
+                    Margin="5"
+                    Click="Save_Click"/>
+            <Button Content="Отмена"
+                    Width="100"
+                    Margin="5"
+                    Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\ProductEditWindow.xaml.cs
-SIZE: 587 chars
+SIZE: 8201 chars
 ============================================================
 
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using Microsoft.Win32;
+using System;
+using System.IO;
+using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+using ShoeStore.WpfApp.Data;
+using ShoeStore.WpfApp.Models;
 
 namespace ShoeStore.WpfApp.Views
 {
-    /// <summary>
-    /// Логика взаимодействия для ProductEditWindow.xaml
-    /// </summary>
     public partial class ProductEditWindow : Window
     {
-        public ProductEditWindow()
+        private Product _editingProduct;
+        private bool _isNew;
+        private string _selectedImagePath;
+
+        public ProductEditWindow(Product product)
         {
             InitializeComponent();
+            _editingProduct = product;
+            _isNew = product == null;
+            LoadReferenceData();
+            if (!_isNew) LoadProductData();
+        }
+
+        private void LoadReferenceData()
+        {
+            using var context = new ShoeStoreDbContext();
+            CategoryComboBox.ItemsSource = context.Categories.OrderBy(c => c.Name).ToList();
+            ManufacturerComboBox.ItemsSource = context.Manufacturers.OrderBy(m => m.Name).ToList();
+            SupplierComboBox.ItemsSource = context.Suppliers.OrderBy(s => s.Name).ToList();
+            UnitComboBox.ItemsSource = context.Units.OrderBy(u => u.Name).ToList();
+            ArticleComboBox.ItemsSource = context.Articles.OrderBy(a => a.Title).ToList();
+        }
+
+        private void LoadProductData()
+        {
+            NameTextBox.Text = _editingProduct.Name;
+            DescriptionTextBox.Text = _editingProduct.Description;
+            PhotoPathTextBox.Text = _editingProduct.PhotoPath;
+            CategoryComboBox.SelectedItem = _editingProduct.Category;
+            ManufacturerComboBox.SelectedItem = _editingProduct.Manufacturer;
+            SupplierComboBox.SelectedItem = _editingProduct.Supplier;
+            UnitComboBox.SelectedItem = _editingProduct.Unit;
+            PriceTextBox.Text = _editingProduct.Price.ToString("F2");
+            DiscountTextBox.Text = _editingProduct.Discount.ToString("F2");
+            QuantityTextBox.Text = _editingProduct.QuantityInStock.ToString();
+            ArticleComboBox.SelectedItem = _editingProduct.Article;
+            ArticleComboBox.Text = _editingProduct.Article.Title;
+        }
+
+        private void BrowseImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new OpenFileDialog
+            {
+                Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*"
+            };
+            if (ofd.ShowDialog() == true)
+            {
+                _selectedImagePath = ofd.FileName;
+                PhotoPathTextBox.Text = _selectedImagePath;
+            }
+        }
+
+        private void Save_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Валидация
+                if (string.IsNullOrWhiteSpace(NameTextBox.Text) ||
+                    !decimal.TryParse(PriceTextBox.Text, out decimal price) || price < 0 ||
+                    !decimal.TryParse(DiscountTextBox.Text, out decimal discount) || discount < 0 || discount > 100 ||
+                    !long.TryParse(QuantityTextBox.Text, out long quantity) || quantity < 0 ||
+                    CategoryComboBox.SelectedItem == null || ManufacturerComboBox.SelectedItem == null ||
+                    SupplierComboBox.SelectedItem == null || UnitComboBox.SelectedItem == null)
+                {
+                    MessageBox.Show("Проверьте введённые данные", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Артикул
+                Article selectedArticle = ArticleComboBox.SelectedItem as Article;
+                string newArticleTitle = ArticleComboBox.Text.Trim();
+                if (selectedArticle == null && string.IsNullOrWhiteSpace(newArticleTitle))
+                {
+                    MessageBox.Show("Выберите или введите артикул", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                using var context = new ShoeStoreDbContext();
+                Article article;
+                if (selectedArticle != null)
+                    article = context.Articles.Find(selectedArticle.Id);
+                else
+                {
+                    if (context.Articles.Any(a => a.Title == newArticleTitle))
+                    {
+                        MessageBox.Show("Такой артикул уже существует", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    article = new Article { Title = newArticleTitle };
+                    context.Articles.Add(article);
+                    context.SaveChanges(); // получить Id
+                }
+
+                Product product;
+                if (_isNew)
+                {
+                    product = new Product();
+                    context.Products.Add(product);
+                }
+                else
+                {
+                    product = context.Products.Find(_editingProduct.Id);
+                }
+
+                product.ArticleId = article.Id;
+                product.Name = NameTextBox.Text.Trim();
+                product.Description = DescriptionTextBox.Text.Trim() ?? "";
+                product.CategoryId = ((Category)CategoryComboBox.SelectedItem).Id;
+                product.ManufacturerId = ((Manufacturer)ManufacturerComboBox.SelectedItem).Id;
+                product.SupplierId = ((Supplier)SupplierComboBox.SelectedItem).Id;
+                product.UnitId = ((Unit)UnitComboBox.SelectedItem).Id;
+                product.Price = price;
+                product.Discount = discount;
+                product.QuantityInStock = quantity;
+
+                context.SaveChanges(); // получить Id для изображения
+
+                // Сохранение изображения
+                if (!string.IsNullOrEmpty(_selectedImagePath))
+                {
+                    string imagesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images");
+                    Directory.CreateDirectory(imagesDir);
+                    string ext = Path.GetExtension(_selectedImagePath);
+                    string fileName = $"product_{product.Id}{ext}";
+                    string dest = Path.Combine(imagesDir, fileName);
+
+                    // Изменение размера до 300x200
+                    using (var img = System.Drawing.Image.FromFile(_selectedImagePath))
+                    using (var resized = new System.Drawing.Bitmap(300, 200))
+                    {
+                        using (var g = System.Drawing.Graphics.FromImage(resized))
+                            g.DrawImage(img, 0, 0, 300, 200);
+                        resized.Save(dest, System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    // Удаление старого фото, если есть
+                    if (!_isNew && !string.IsNullOrEmpty(_editingProduct.PhotoPath))
+                    {
+                        string oldFull = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _editingProduct.PhotoPath);
+                        if (File.Exists(oldFull) && oldFull != dest)
+                            File.Delete(oldFull);
+                    }
+
+                    product.PhotoPath = $"Images/{fileName}";
+                }
+                else if (!_isNew && string.IsNullOrEmpty(_selectedImagePath) && PhotoPathTextBox.Text != _editingProduct.PhotoPath)
+                {
+                    // Пользователь очистил поле – удаляем старое фото
+                    if (!string.IsNullOrEmpty(_editingProduct.PhotoPath))
+                    {
+                        string oldFull = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _editingProduct.PhotoPath);
+                        if (File.Exists(oldFull)) File.Delete(oldFull);
+                    }
+                    product.PhotoPath = null;
+                }
+
+                context.SaveChanges();
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка сохранения: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+            Close();
         }
     }
 }
 
-
 ============================================================
 FILE: ShoeStore.WpfApp\Views\ProductsWindow.xaml
-SIZE: 5395 chars
+SIZE: 9813 chars
 ============================================================
 
 ﻿<Window x:Class="ShoeStore.WpfApp.Views.ProductsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:ShoeStore.WpfApp.Converters"
-        Title="Товары" Height="600" Width="1000"
+        Title="Товары"
+        Height="600"
+        Width="1000"
         WindowStartupLocation="CenterScreen"
-        Icon="/Assets/shoe.ico"
+        Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
     <Window.Resources>
-        <converters:PriceWithDiscountMultiConverter x:Key="PriceWithDiscountMultiConverter"/>
         <converters:RoleToVisibilityConverter x:Key="RoleToVisibilityConverter"/>
-        <converters:DiscountToBackgroundConverter x:Key="DiscountToBackgroundConverter"/>
+        <converters:ProductRowBackgroundMultiConverter x:Key="ProductRowBackgroundMultiConverter"/>
+        <converters:DiscountToTextDecorationConverter x:Key="DiscountToTextDecorationConverter"/>
+        <converters:DiscountToForegroundConverter x:Key="DiscountToForegroundConverter"/>
+        <converters:DiscountToVisibilityConverter x:Key="DiscountToVisibilityConverter"/>
+        <converters:PriceWithDiscountMultiConverter x:Key="PriceWithDiscountMultiConverter"/>
+        <converters:PathToImageConverter x:Key="PathToImageConverter"/>
     </Window.Resources>
 
     <Grid>
@@ -1904,70 +2428,171 @@ SIZE: 5395 chars
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Шапка с логотипом и заголовком -->
-        <Border Grid.Row="0" Background="{StaticResource SecondaryBackgroundBrush}" Padding="10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <Image Source="/Assets/logo.png" Height="50" Margin="0,0,20,0"/>
-                <TextBlock Text="Обувной магазин" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+        <!-- Шапка с логотипом, ФИО и кнопкой выхода -->
+        <Border Grid.Row="0"
+                Background="{StaticResource SecondaryBackgroundBrush}"
+                Padding="10">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Stretch">
+                <Image Source="/Assets/logo.png"
+                       Height="50"
+                       Margin="0,0,20,0"/>
+                <TextBlock Text="Обувной магазин"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding CurrentUserFullName}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Margin="10,0,0,0"
+                           FontWeight="Bold"/>
+                <Button Content="Выход"
+                        Width="80"
+                        Margin="10,0,0,0"
+                        Click="LogoutButton_Click"/>
             </StackPanel>
         </Border>
 
-        <!-- Панель фильтрации, сортировки и поиска (видна только менеджеру и админу) -->
-        <Border Grid.Row="1" Background="#F0F0F0" Padding="10"
+        <!-- Панель фильтрации (только менеджер/админ) -->
+        <Border Grid.Row="1"
+                Background="#F0F0F0"
+                Padding="10"
                 Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=ManagerOrAdmin}">
             <WrapPanel>
-                <TextBlock Text="Поиск:" VerticalAlignment="Center" Margin="5"/>
-                <TextBox x:Name="SearchTextBox" Width="200" Margin="5"/>
-                <TextBlock Text="Сортировка:" VerticalAlignment="Center" Margin="5"/>
-                <ComboBox x:Name="SortComboBox" Width="150" Margin="5">
-                    <ComboBoxItem Content="По названию"/>
+                <TextBlock Text="Поиск:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <TextBox x:Name="SearchTextBox"
+                         Width="200"
+                         Margin="5"
+                         TextChanged="SearchTextBox_TextChanged"/>
+                <TextBlock Text="Сортировка:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <ComboBox x:Name="SortComboBox"
+                          Width="150"
+                          Margin="5"
+                          SelectionChanged="SortComboBox_SelectionChanged">
+                    <ComboBoxItem Content="По названию"
+                                  IsSelected="True"/>
                     <ComboBoxItem Content="По цене (возр.)"/>
                     <ComboBoxItem Content="По цене (убыв.)"/>
+                    <ComboBoxItem Content="По количеству (возр.)"/>
+                    <ComboBoxItem Content="По количеству (убыв.)"/>
                 </ComboBox>
-                <TextBlock Text="Категория:" VerticalAlignment="Center" Margin="5"/>
-                <ComboBox x:Name="CategoryComboBox" Width="150" Margin="5"/>
-                <Button Content="Применить" Margin="5"/>
+                <TextBlock Text="Поставщик:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <ComboBox x:Name="SupplierFilterComboBox"
+                          Width="150"
+                          Margin="5"
+                          SelectionChanged="SupplierFilterComboBox_SelectionChanged"/>
             </WrapPanel>
         </Border>
 
-        <!-- Кнопки управления товарами (только для админа) -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10"
+        <!-- Кнопки для администратора -->
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="10"
                     Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=Admin}">
-            <Button Content="Добавить" Width="100" Margin="5" Click="AddProduct_Click"/>
-            <Button Content="Изменить" Width="100" Margin="5" Click="EditProduct_Click"/>
-            <Button Content="Удалить" Width="100" Margin="5" Click="DeleteProduct_Click"/>
+            <Button Content="Добавить"
+                    Width="100"
+                    Margin="5"
+                    Click="AddProduct_Click"/>
+            <Button Content="Изменить"
+                    Width="100"
+                    Margin="5"
+                    Click="EditProduct_Click"/>
+            <Button Content="Удалить"
+                    Width="100"
+                    Margin="5"
+                    Click="DeleteProduct_Click"/>
         </StackPanel>
 
-        <!-- Кнопка перехода к заказам (для менеджера и админа) -->
-        <Button Grid.Row="1" Content="Заказы" Width="100" HorizontalAlignment="Right" Margin="10,10,120,10"
+        <!-- Кнопка перехода к заказам (для менеджера/админа) -->
+        <Button Grid.Row="1"
+                Content="Заказы"
+                Width="100"
+                HorizontalAlignment="Right"
+                Margin="0,34,10,0"
                 Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=ManagerOrAdmin}"
                 Click="OpenOrders_Click"/>
 
-        <!-- Список товаров -->
-        <DataGrid Grid.Row="2" x:Name="ProductsDataGrid" Margin="10"
-                  ItemsSource="{Binding Products}">
+        <!-- Таблица товаров -->
+        <DataGrid Grid.Row="2"
+                  x:Name="ProductsDataGrid"
+                  Margin="10"
+                  ItemsSource="{Binding Products}"
+                  AutoGenerateColumns="False"
+                  MouseDoubleClick="ProductsDataGrid_MouseDoubleClick">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Артикул" Binding="{Binding Article.Title}" Width="Auto"/>
-                <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="Категория" Binding="{Binding Category.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Поставщик" Binding="{Binding Supplier.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}" Width="Auto"/>
-                <DataGridTextColumn Header="Скидка %" Binding="{Binding Discount}" Width="Auto"/>
-                <DataGridTextColumn Header="Цена со скидкой" Width="Auto">
-                    <DataGridTextColumn.Binding>
-                        <MultiBinding Converter="{StaticResource PriceWithDiscountMultiConverter}" StringFormat="{}{0:N2}">
-                            <Binding Path="Price"/>
-                            <Binding Path="Discount"/>
-                        </MultiBinding>
-                    </DataGridTextColumn.Binding>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityInStock}" Width="Auto"/>
+                <DataGridTextColumn Header="Артикул"
+                                    Binding="{Binding Article.Title}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Наименование"
+                                    Binding="{Binding Name}"
+                                    Width="*"/>
+                <DataGridTextColumn Header="Категория"
+                                    Binding="{Binding Category.Name}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Производитель"
+                                    Binding="{Binding Manufacturer.Name}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Поставщик"
+                                    Binding="{Binding Supplier.Name}"
+                                    Width="Auto"/>
+                <DataGridTemplateColumn Header="Цена"
+                                        Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Price, StringFormat=N2}"
+                                           TextDecorations="{Binding Discount, Converter={StaticResource DiscountToTextDecorationConverter}}"
+                                           Foreground="{Binding Discount, Converter={StaticResource DiscountToForegroundConverter}}"
+                                           Margin="0,0,5,0"/>
+                                <TextBlock Visibility="{Binding Discount, Converter={StaticResource DiscountToVisibilityConverter}}">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource PriceWithDiscountMultiConverter}"
+                                                      StringFormat="{}{0:N2}">
+                                            <Binding Path="Price"/>
+                                            <Binding Path="Discount"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Скидка %"
+                                    Binding="{Binding Discount}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Кол-во"
+                                    Binding="{Binding QuantityInStock}"
+                                    Width="Auto"/>
+                <DataGridTemplateColumn Header="Фото"
+                                        Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Image Source="{Binding PhotoPath, Converter={StaticResource PathToImageConverter}}"
+                                   Width="50"
+                                   Height="50"
+                                   Stretch="Uniform"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
-            <!-- Стиль строки: изменение фона при скидке >15% -->
+
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
-                    <Setter Property="Background" Value="{Binding Discount, Converter={StaticResource DiscountToBackgroundConverter}}"/>
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <MultiBinding Converter="{StaticResource ProductRowBackgroundMultiConverter}">
+                                <Binding Path="Discount"/>
+                                <Binding Path="QuantityInStock"/>
+                            </MultiBinding>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </DataGrid.RowStyle>
         </DataGrid>
@@ -1976,24 +2601,203 @@ SIZE: 5395 chars
 
 ============================================================
 FILE: ShoeStore.WpfApp\Views\ProductsWindow.xaml.cs
-SIZE: 578 chars
+SIZE: 8508 chars
 ============================================================
 
-﻿using System.Windows;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using ShoeStore.WpfApp.Data;
+using ShoeStore.WpfApp.Models;
 
 namespace ShoeStore.WpfApp.Views
 {
     public partial class ProductsWindow : Window
     {
-        public ProductsWindow()
+        private User _currentUser;
+        private string _currentUserRole;
+        private string _currentUserFullName;
+        private ObservableCollection<Product> _allProducts;
+        private bool _isEditWindowOpen = false;
+
+        public string CurrentUserRole => _currentUserRole;
+        public string CurrentUserFullName => _currentUserFullName;
+        public ObservableCollection<Product> Products { get; } = new ObservableCollection<Product>();
+
+        public ProductsWindow(User user)
         {
             InitializeComponent();
+            _currentUser = user;
+            _currentUserRole = user?.Role?.Name ?? "Гость";
+            _currentUserFullName = user?.FullName ?? "Гость";
+            DataContext = this;
+
+            LoadSuppliers();
+            LoadProducts();
         }
 
-        // Пустые обработчики для кнопок (реализовать позже)
-        private void AddProduct_Click(object sender, RoutedEventArgs e) { }
-        private void EditProduct_Click(object sender, RoutedEventArgs e) { }
-        private void DeleteProduct_Click(object sender, RoutedEventArgs e) { }
-        private void OpenOrders_Click(object sender, RoutedEventArgs e) { }
+        private void LoadSuppliers()
+        {
+            using (var context = new ShoeStoreDbContext())
+            {
+                var suppliers = context.Suppliers.OrderBy(s => s.Name).ToList();
+                SupplierFilterComboBox.ItemsSource = suppliers;
+                SupplierFilterComboBox.DisplayMemberPath = "Name";
+                SupplierFilterComboBox.Items.Insert(0, new Supplier { Id = 0, Name = "Все поставщики" });
+                SupplierFilterComboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void LoadProducts()
+        {
+            try
+            {
+                using (var context = new ShoeStoreDbContext())
+                {
+                    var list = context.Products
+                        .Include(p => p.Article)
+                        .Include(p => p.Category)
+                        .Include(p => p.Manufacturer)
+                        .Include(p => p.Supplier)
+                        .Include(p => p.Unit)
+                        .ToList();
+                    _allProducts = new ObservableCollection<Product>(list);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка загрузки: {ex.Message}", "Ошибка",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                _allProducts = new ObservableCollection<Product>(); // пустая коллекция вместо null
+            }
+            ApplyFilter(); // всегда применяем фильтр, даже если список пуст
+        }
+
+        private void ApplyFilter()
+        {
+            var filtered = _allProducts.AsEnumerable();
+
+            // Поиск
+            string search = SearchTextBox?.Text?.Trim().ToLower() ?? "";
+            if (!string.IsNullOrEmpty(search))
+            {
+                filtered = filtered.Where(p =>
+                    (p.Article?.Title?.ToLower().Contains(search) ?? false) ||
+                    (p.Name?.ToLower().Contains(search) ?? false) ||
+                    (p.Description?.ToLower().Contains(search) ?? false) ||
+                    (p.Category?.Name?.ToLower().Contains(search) ?? false) ||
+                    (p.Manufacturer?.Name?.ToLower().Contains(search) ?? false) ||
+                    (p.Supplier?.Name?.ToLower().Contains(search) ?? false));
+            }
+
+            // Фильтр по поставщику
+            if (SupplierFilterComboBox?.SelectedItem is Supplier selected && selected.Id != 0)
+                filtered = filtered.Where(p => p.SupplierId == selected.Id);
+
+            // Сортировка
+            string sortBy = (SortComboBox?.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "По названию";
+            switch (sortBy)
+            {
+                case "По названию": filtered = filtered.OrderBy(p => p.Name); break;
+                case "По цене (возр.)": filtered = filtered.OrderBy(p => p.Price * (1 - p.Discount / 100)); break;
+                case "По цене (убыв.)": filtered = filtered.OrderByDescending(p => p.Price * (1 - p.Discount / 100)); break;
+                case "По количеству (возр.)": filtered = filtered.OrderBy(p => p.QuantityInStock); break;
+                case "По количеству (убыв.)": filtered = filtered.OrderByDescending(p => p.QuantityInStock); break;
+            }
+
+            Products.Clear();
+            foreach (var p in filtered)
+                Products.Add(p);
+        }
+
+        // Обработчики фильтрации
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
+        private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyFilter();
+        private void SupplierFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyFilter();
+
+        // CRUD
+        private void AddProduct_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isEditWindowOpen) { ShowEditWarning(); return; }
+            var win = new ProductEditWindow(null) { Owner = this };
+            try { _isEditWindowOpen = true; if (win.ShowDialog() == true) LoadProducts(); }
+            finally { _isEditWindowOpen = false; }
+        }
+
+        private void EditProduct_Click(object sender, RoutedEventArgs e)
+        {
+            if (ProductsDataGrid.SelectedItem is not Product selected)
+            {
+                MessageBox.Show("Выберите товар", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (_isEditWindowOpen) { ShowEditWarning(); return; }
+            var win = new ProductEditWindow(selected) { Owner = this };
+            try { _isEditWindowOpen = true; if (win.ShowDialog() == true) LoadProducts(); }
+            finally { _isEditWindowOpen = false; }
+        }
+
+        private void ShowEditWarning() =>
+            MessageBox.Show("Окно редактирования уже открыто", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+
+        private async void DeleteProduct_Click(object sender, RoutedEventArgs e)
+        {
+            if (ProductsDataGrid.SelectedItem is not Product selected) return;
+            if (MessageBox.Show($"Удалить товар \"{selected.Name}\"?", "Подтверждение",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            try
+            {
+                using var context = new ShoeStoreDbContext();
+                bool hasOrders = await context.OrderItems.AnyAsync(oi => oi.ArticleId == selected.ArticleId);
+                if (hasOrders)
+                {
+                    MessageBox.Show("Товар присутствует в заказах и не может быть удалён", "Ошибка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Удаление файла изображения
+                if (!string.IsNullOrEmpty(selected.PhotoPath))
+                {
+                    string full = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, selected.PhotoPath);
+                    if (System.IO.File.Exists(full)) System.IO.File.Delete(full);
+                }
+
+                var product = await context.Products.Include(p => p.Article)
+                    .FirstOrDefaultAsync(p => p.Id == selected.Id);
+                if (product != null)
+                {
+                    context.Products.Remove(product);
+                    context.Articles.Remove(product.Article);
+                    await context.SaveChangesAsync();
+                }
+                LoadProducts();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ProductsDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentUserRole == "Администратор" && ProductsDataGrid.SelectedItem is Product)
+                EditProduct_Click(sender, null);
+        }
+
+        private void OpenOrders_Click(object sender, RoutedEventArgs e) =>
+            MessageBox.Show("Работа с заказами не входит в базовый уровень", "Информация",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+
+        private void LogoutButton_Click(object sender, RoutedEventArgs e)
+        {
+            new LoginWindow().Show();
+            Close();
+        }
     }
 }

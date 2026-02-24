@@ -2,14 +2,20 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:ShoeStore.WpfApp.Converters"
-        Title="Товары" Height="600" Width="1000"
+        Title="Товары"
+        Height="600"
+        Width="1000"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/Icon.ico"
         Background="{StaticResource MainBackgroundBrush}">
     <Window.Resources>
-        <converters:PriceWithDiscountMultiConverter x:Key="PriceWithDiscountMultiConverter"/>
         <converters:RoleToVisibilityConverter x:Key="RoleToVisibilityConverter"/>
-        <converters:DiscountToBackgroundConverter x:Key="DiscountToBackgroundConverter"/>
+        <converters:ProductRowBackgroundMultiConverter x:Key="ProductRowBackgroundMultiConverter"/>
+        <converters:DiscountToTextDecorationConverter x:Key="DiscountToTextDecorationConverter"/>
+        <converters:DiscountToForegroundConverter x:Key="DiscountToForegroundConverter"/>
+        <converters:DiscountToVisibilityConverter x:Key="DiscountToVisibilityConverter"/>
+        <converters:PriceWithDiscountMultiConverter x:Key="PriceWithDiscountMultiConverter"/>
+        <converters:PathToImageConverter x:Key="PathToImageConverter"/>
     </Window.Resources>
 
     <Grid>
@@ -19,70 +25,171 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Шапка с логотипом и заголовком -->
-        <Border Grid.Row="0" Background="{StaticResource SecondaryBackgroundBrush}" Padding="10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <Image Source="/Assets/logo.png" Height="50" Margin="0,0,20,0"/>
-                <TextBlock Text="Обувной магазин" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+        <!-- Шапка с логотипом, ФИО и кнопкой выхода -->
+        <Border Grid.Row="0"
+                Background="{StaticResource SecondaryBackgroundBrush}"
+                Padding="10">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Stretch">
+                <Image Source="/Assets/logo.png"
+                       Height="50"
+                       Margin="0,0,20,0"/>
+                <TextBlock Text="Обувной магазин"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding CurrentUserFullName}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Margin="10,0,0,0"
+                           FontWeight="Bold"/>
+                <Button Content="Выход"
+                        Width="80"
+                        Margin="10,0,0,0"
+                        Click="LogoutButton_Click"/>
             </StackPanel>
         </Border>
 
-        <!-- Панель фильтрации, сортировки и поиска (видна только менеджеру и админу) -->
-        <Border Grid.Row="1" Background="#F0F0F0" Padding="10"
+        <!-- Панель фильтрации (только менеджер/админ) -->
+        <Border Grid.Row="1"
+                Background="#F0F0F0"
+                Padding="10"
                 Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=ManagerOrAdmin}">
             <WrapPanel>
-                <TextBlock Text="Поиск:" VerticalAlignment="Center" Margin="5"/>
-                <TextBox x:Name="SearchTextBox" Width="200" Margin="5"/>
-                <TextBlock Text="Сортировка:" VerticalAlignment="Center" Margin="5"/>
-                <ComboBox x:Name="SortComboBox" Width="150" Margin="5">
-                    <ComboBoxItem Content="По названию"/>
+                <TextBlock Text="Поиск:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <TextBox x:Name="SearchTextBox"
+                         Width="200"
+                         Margin="5"
+                         TextChanged="SearchTextBox_TextChanged"/>
+                <TextBlock Text="Сортировка:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <ComboBox x:Name="SortComboBox"
+                          Width="150"
+                          Margin="5"
+                          SelectionChanged="SortComboBox_SelectionChanged">
+                    <ComboBoxItem Content="По названию"
+                                  IsSelected="True"/>
                     <ComboBoxItem Content="По цене (возр.)"/>
                     <ComboBoxItem Content="По цене (убыв.)"/>
+                    <ComboBoxItem Content="По количеству (возр.)"/>
+                    <ComboBoxItem Content="По количеству (убыв.)"/>
                 </ComboBox>
-                <TextBlock Text="Категория:" VerticalAlignment="Center" Margin="5"/>
-                <ComboBox x:Name="CategoryComboBox" Width="150" Margin="5"/>
-                <Button Content="Применить" Margin="5"/>
+                <TextBlock Text="Поставщик:"
+                           VerticalAlignment="Center"
+                           Margin="5"/>
+                <ComboBox x:Name="SupplierFilterComboBox"
+                          Width="150"
+                          Margin="5"
+                          SelectionChanged="SupplierFilterComboBox_SelectionChanged"/>
             </WrapPanel>
         </Border>
 
-        <!-- Кнопки управления товарами (только для админа) -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10"
+        <!-- Кнопки для администратора -->
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="10"
                     Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=Admin}">
-            <Button Content="Добавить" Width="100" Margin="5" Click="AddProduct_Click"/>
-            <Button Content="Изменить" Width="100" Margin="5" Click="EditProduct_Click"/>
-            <Button Content="Удалить" Width="100" Margin="5" Click="DeleteProduct_Click"/>
+            <Button Content="Добавить"
+                    Width="100"
+                    Margin="5"
+                    Click="AddProduct_Click"/>
+            <Button Content="Изменить"
+                    Width="100"
+                    Margin="5"
+                    Click="EditProduct_Click"/>
+            <Button Content="Удалить"
+                    Width="100"
+                    Margin="5"
+                    Click="DeleteProduct_Click"/>
         </StackPanel>
 
-        <!-- Кнопка перехода к заказам (для менеджера и админа) -->
-        <Button Grid.Row="1" Content="Заказы" Width="100" HorizontalAlignment="Right" Margin="0,34,103,442"
+        <!-- Кнопка перехода к заказам (для менеджера/админа) -->
+        <Button Grid.Row="1"
+                Content="Заказы"
+                Width="100"
+                HorizontalAlignment="Right"
+                Margin="0,34,10,0"
                 Visibility="{Binding CurrentUserRole, Converter={StaticResource RoleToVisibilityConverter}, ConverterParameter=ManagerOrAdmin}"
-                Click="OpenOrders_Click" Grid.RowSpan="2"/>
+                Click="OpenOrders_Click"/>
 
-        <!-- Список товаров -->
-        <DataGrid Grid.Row="2" x:Name="ProductsDataGrid" Margin="10"
-                  ItemsSource="{Binding Products}">
+        <!-- Таблица товаров -->
+        <DataGrid Grid.Row="2"
+                  x:Name="ProductsDataGrid"
+                  Margin="10"
+                  ItemsSource="{Binding Products}"
+                  AutoGenerateColumns="False"
+                  MouseDoubleClick="ProductsDataGrid_MouseDoubleClick">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Артикул" Binding="{Binding Article.Title}" Width="Auto"/>
-                <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="Категория" Binding="{Binding Category.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Производитель" Binding="{Binding Manufacturer.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Поставщик" Binding="{Binding Supplier.Name}" Width="Auto"/>
-                <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}" Width="Auto"/>
-                <DataGridTextColumn Header="Скидка %" Binding="{Binding Discount}" Width="Auto"/>
-                <DataGridTextColumn Header="Цена со скидкой" Width="Auto">
-                    <DataGridTextColumn.Binding>
-                        <MultiBinding Converter="{StaticResource PriceWithDiscountMultiConverter}" StringFormat="{}{0:N2}">
-                            <Binding Path="Price"/>
-                            <Binding Path="Discount"/>
-                        </MultiBinding>
-                    </DataGridTextColumn.Binding>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityInStock}" Width="Auto"/>
+                <DataGridTextColumn Header="Артикул"
+                                    Binding="{Binding Article.Title}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Наименование"
+                                    Binding="{Binding Name}"
+                                    Width="*"/>
+                <DataGridTextColumn Header="Категория"
+                                    Binding="{Binding Category.Name}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Производитель"
+                                    Binding="{Binding Manufacturer.Name}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Поставщик"
+                                    Binding="{Binding Supplier.Name}"
+                                    Width="Auto"/>
+                <DataGridTemplateColumn Header="Цена"
+                                        Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Price, StringFormat=N2}"
+                                           TextDecorations="{Binding Discount, Converter={StaticResource DiscountToTextDecorationConverter}}"
+                                           Foreground="{Binding Discount, Converter={StaticResource DiscountToForegroundConverter}}"
+                                           Margin="0,0,5,0"/>
+                                <TextBlock Visibility="{Binding Discount, Converter={StaticResource DiscountToVisibilityConverter}}">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource PriceWithDiscountMultiConverter}"
+                                                      StringFormat="{}{0:N2}">
+                                            <Binding Path="Price"/>
+                                            <Binding Path="Discount"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Скидка %"
+                                    Binding="{Binding Discount}"
+                                    Width="Auto"/>
+                <DataGridTextColumn Header="Кол-во"
+                                    Binding="{Binding QuantityInStock}"
+                                    Width="Auto"/>
+                <DataGridTemplateColumn Header="Фото"
+                                        Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Image Source="{Binding PhotoPath, Converter={StaticResource PathToImageConverter}}"
+                                   Width="50"
+                                   Height="50"
+                                   Stretch="Uniform"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
-            <!-- Стиль строки: изменение фона при скидке >15% -->
+
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
-                    <Setter Property="Background" Value="{Binding Discount, Converter={StaticResource DiscountToBackgroundConverter}}"/>
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <MultiBinding Converter="{StaticResource ProductRowBackgroundMultiConverter}">
+                                <Binding Path="Discount"/>
+                                <Binding Path="QuantityInStock"/>
+                            </MultiBinding>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </DataGrid.RowStyle>
         </DataGrid>

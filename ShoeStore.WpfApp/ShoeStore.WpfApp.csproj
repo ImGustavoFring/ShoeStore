@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="EPPlus" Version="8.4.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" Version="10.0.3" />
@@ -34,5 +35,11 @@
   <ItemGroup>
     <Resource Include="Assets\Icon.ico" />
   </ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Assets\*.xlsx">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 
 </Project>
