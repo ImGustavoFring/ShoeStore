@@ -16,8 +16,8 @@ namespace ShoeStore.WpfApp
             // При первом запуске заполняем базу данных из Excel-файлов
             using (var context = new ShoeStoreDbContext())
             {
-                context.Database.EnsureDeleted();
-                context.Database.EnsureCreated();
+                //context.Database.EnsureDeleted();
+                //context.Database.EnsureCreated();
 
                 if (!context.Users.Any())
                 {

@@ -26,6 +26,7 @@ namespace ShoeStore.WpfApp.Views
         private void LoadReferenceData()
         {
             using var context = new ShoeStoreDbContext();
+
             CategoryComboBox.ItemsSource = context.Categories.OrderBy(c => c.Name).ToList();
             ManufacturerComboBox.ItemsSource = context.Manufacturers.OrderBy(m => m.Name).ToList();
             SupplierComboBox.ItemsSource = context.Suppliers.OrderBy(s => s.Name).ToList();
@@ -88,7 +89,9 @@ namespace ShoeStore.WpfApp.Views
                 }
 
                 using var context = new ShoeStoreDbContext();
+
                 Article article;
+
                 if (selectedArticle != null)
                     article = context.Articles.Find(selectedArticle.Id);
                 else
@@ -99,7 +102,9 @@ namespace ShoeStore.WpfApp.Views
                         return;
                     }
                     article = new Article { Title = newArticleTitle };
+
                     context.Articles.Add(article);
+
                     context.SaveChanges(); // получить Id
                 }
 
